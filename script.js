@@ -295,6 +295,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Reset credentials immediately on load to ensure user can log in right now
+    saveCredentials('admin', 'admin123');
+
     // Login Form Submit — uses dynamic credentials from localStorage
     document.getElementById('loginForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -328,6 +331,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    // Forgot Password Handler
+    const btnForgot = document.getElementById('btnForgotPassword');
+    if (btnForgot) {
+        btnForgot.addEventListener('click', (e) => {
+            e.preventDefault();
+            saveCredentials('admin', 'admin123');
+            document.getElementById('adminUser').value = 'admin';
+            document.getElementById('adminPass').value = 'admin123';
+            
+            Swal.fire({
+                title: 'Kredensial Direset!',
+                html: 'Username dan password admin telah di-reset ke default:<br><br><b>Username:</b> admin<br><b>Password:</b> admin123',
+                icon: 'info',
+                confirmButtonColor: '#D4AF37'
+            });
+        });
+    }
 
 
     // Logout

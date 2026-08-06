@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveState();
         }
         state.specialWinners = state.specialWinners || [];
+        state.settings.drawSpeed = state.settings.drawSpeed || 'normal';
     }
 
     function saveState() {
@@ -161,7 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
             volume:      state.settings.volume,
             sound:       state.settings.soundEnabled,
             anim:        state.settings.animEnabled,
-            drawMode:    state.settings.drawMode || 'rolling'
+            drawMode:    state.settings.drawMode || 'rolling',
+            drawSpeed:   state.settings.drawSpeed || 'normal'
         });
         
         if (state.settings.drawMode === 'wheel') {
@@ -365,6 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshCredentialUI();
         populateSpecialWinnerDropdowns();
         renderSpecialWinnersTable();
+        
+        // Load initial draw speed
+        const speedEl = document.getElementById('drawSpeedInput');
+        if (speedEl) speedEl.value = state.settings.drawSpeed || 'normal';
     }
 
     function applyCustomStyling() {
@@ -1026,6 +1032,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function startRollingAnimation() {
         const list = document.getElementById('rollingList');
         let idx = 0;
+        
+        let interval = 70;
+        if (state.settings.drawSpeed === 'fast') interval = 40;
+        else if (state.settings.drawSpeed === 'slow') interval = 120;
+
         rollTimer = setInterval(() => {
             const item = readyParticipants[idx % readyParticipants.length];
             const html = `
@@ -1040,11 +1051,15 @@ document.addEventListener('DOMContentLoaded', () => {
             broadcastToDisplay('ROLLING_TICK', item);
             playSound('tick');
             idx++;
-        }, 60);
+        }, interval);
     }
 
     function startWheelAnimation() {
-        wheelSpeed = 0.2;
+        let speed = 0.2;
+        if (state.settings.drawSpeed === 'fast') speed = 0.35;
+        else if (state.settings.drawSpeed === 'slow') speed = 0.1;
+        
+        wheelSpeed = speed;
         broadcastToDisplay('START_WHEEL', {});
         function animate() {
             if (!isDrawing) return;
@@ -1272,6 +1287,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cfgToggleAnimations').addEventListener('change', (e) => {
         state.settings.animEnabled = e.target.checked;
         saveState();
+    });
+
+    document.getElementById('drawSpeedInput').addEventListener('change', (e) => {
+        state.settings.drawSpeed = e.target.value;
+        saveState();
+        broadcastToDisplay('UPDATE_SPEED', { drawSpeed: state.settings.drawSpeed });
     });
 
     // Logo Upload

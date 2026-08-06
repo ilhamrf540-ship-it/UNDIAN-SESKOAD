@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Undian Doorprize Premium</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- SheetJS (Excel Parser & Builder) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Admin Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-panel-gold p-4">
+                <div class="modal-header border-0 text-center d-block">
+                    <h3 class="modal-title text-gold font-outfit text-uppercase fw-bold"><i class="fa-solid fa-lock me-2"></i>Admin Login</h3>
+                </div>
+                <div class="modal-body border-0">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label text-white">Username</label>
+                            <input type="text" id="adminUser" class="form-control bg-dark border-secondary text-white" required value="admin">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label text-white">Password</label>
+                            <input type="password" id="adminPass" class="form-control bg-dark border-secondary text-white" required value="admin123">
+                        </div>
+                        <button type="submit" class="btn btn-gold w-100 py-2"><i class="fa-solid fa-right-to-bracket me-2"></i>Masuk Admin</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="container-fluid p-0 d-flex" id="appContainer">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar d-flex flex-column justify-content-between p-3" id="sidebarContainer">
+            <div>
+                <!-- Brand logo area -->
+                <div class="text-center py-4 border-bottom border-secondary mb-4">
+                    <img id="appLogo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='none' stroke='%23D4AF37' stroke-width='4'/><path d='M30 40 L50 20 L70 40 L50 60 Z' fill='%23D4AF37'/><path d='M30 65 L50 45 L70 65 L50 85 Z' fill='%232563EB'/></svg>" alt="Logo" class="img-fluid rounded mb-3" style="max-height: 80px;">
+                    <h6 class="fw-bold text-white mb-0" id="eventNameDisplay">UNDIAN DOORPRIZE</h6>
+                    <small class="text-gold" id="eventOrgDisplay">PANITIA ACARA</small>
+                </div>
+
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="#" data-section="dashboard"><i class="fa-solid fa-gauge"></i>Dashboard</a>
+                    <a class="nav-link" href="#" data-section="peserta"><i class="fa-solid fa-users"></i>Data Peserta</a>
+                    <a class="nav-link" href="#" data-section="hadiah"><i class="fa-solid fa-gift"></i>Data Hadiah</a>
+                    <a class="nav-link" href="#" data-section="pengundian"><i class="fa-solid fa-circle-play"></i>Pengundian</a>
+                    <a class="nav-link" href="#" data-section="pemenang"><i class="fa-solid fa-trophy"></i>Riwayat Pemenang</a>
+                    <a class="nav-link" href="#" data-section="pengaturan"><i class="fa-solid fa-gears"></i>Pengaturan</a>
+                </nav>
+            </div>
+            
+            <div class="px-3 py-2 border-top border-secondary mt-auto">
+                <button class="btn btn-outline-danger w-100 btn-sm mt-3" id="logoutBtn"><i class="fa-solid fa-right-from-bracket me-2"></i>Keluar Admin</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow-1 p-4" style="height: 100vh; overflow-y: auto;">
+            
+            <!-- Header Bar -->
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                <div class="wreath-container">
+                    <i class="fa-solid fa-ribbon wreath-icon"></i>
+                    <div>
+                        <h2 class="header-accent-title fw-bold m-0" id="mainTitleText">APLIKASI UNDIAN DOORPRIZE</h2>
+                        <small class="text-muted" id="eventDateDisplay">Sabtu, 24 Mei 2025 | 20:30:45 WIB</small>
+                    </div>
+                    <i class="fa-solid fa-ribbon wreath-icon fa-flip-horizontal"></i>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-gold btn-sm" id="btnTvMode"><i class="fa-solid fa-tv me-2"></i>Layar Besar (TV)</button>
+                </div>
+            </div>
+
+            <!-- SECTION: Dashboard -->
+            <section id="section-dashboard" class="app-section">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 text-center">
+                            <i class="fa-solid fa-users fa-3x text-blue mb-3"></i>
+                            <h3 class="fw-bold mb-1" id="statPeserta">0</h3>
+                            <span class="text-muted">Total Peserta</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 text-center">
+                            <i class="fa-solid fa-gift fa-3x text-gold mb-3"></i>
+                            <h3 class="fw-bold mb-1" id="statHadiah">0</h3>
+                            <span class="text-muted">Total Hadiah</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 text-center">
+                            <i class="fa-solid fa-box-open fa-3x text-warning mb-3"></i>
+                            <h3 class="fw-bold mb-1" id="statHadiahSisa">0</h3>
+                            <span class="text-muted">Hadiah Tersisa</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="glass-panel p-4 text-center">
+                            <i class="fa-solid fa-trophy fa-3x text-success mb-3"></i>
+                            <h3 class="fw-bold mb-1" id="statPemenang">0</h3>
+                            <span class="text-muted">Total Pemenang</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="glass-panel p-4 h-100">
+                            <h5 class="fw-bold text-gold border-bottom border-secondary pb-2 mb-3"><i class="fa-solid fa-circle-info me-2"></i>Informasi Acara</h5>
+                            <form id="eventConfigForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Nama Acara</label>
+                                    <input type="text" id="cfgEventName" class="form-control bg-dark border-secondary text-white" value="SESKOAD AWARD 2025">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Slogan / Deskripsi Acara</label>
+                                    <input type="text" id="cfgEventSlogan" class="form-control bg-dark border-secondary text-white" value="&quot;Membangun Sinergi, Mengukir Prestasi&quot;">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Penyelenggara</label>
+                                    <input type="text" id="cfgEventOrg" class="form-control bg-dark border-secondary text-white" value="SESKOAD - INFOLAHTA">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tanggal & Waktu Acara</label>
+                                    <input type="text" id="cfgEventDate" class="form-control bg-dark border-secondary text-white" value="Sabtu, 24 Mei 2025">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Teks Berjalan Layar Besar (Marquee)</label>
+                                    <textarea id="cfgEventMarquee" class="form-control bg-dark border-secondary text-white" rows="2">Selamat kepada pemenang! Silakan menghubungi panitia untuk mengambil hadiah. Serta selamat menyaksikan keseruan undian hari ini.</textarea>
+                                </div>
+                                <button type="submit" class="btn btn-gold btn-sm"><i class="fa-solid fa-floppy-disk me-2"></i>Simpan Perubahan</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="glass-panel p-4 h-100 text-center d-flex flex-column justify-content-center align-items-center">
+                            <h5 class="fw-bold text-gold mb-3 w-100 text-start border-bottom border-secondary pb-2"><i class="fa-solid fa-chart-pie me-2"></i>Tingkat Pengundian</h5>
+                            <div class="position-relative d-inline-flex align-items-center justify-content-center" style="width: 150px; height: 150px;">
+                                <svg class="w-100 h-100" viewBox="0 0 36 36">
+                                    <path class="text-dark" stroke-width="3" stroke="rgba(255,255,255,0.05)" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path id="progressCircle" stroke-width="3" stroke="#D4AF37" stroke-dasharray="0, 100" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                </svg>
+                                <div class="position-absolute text-center">
+                                    <h4 class="fw-bold m-0" id="progressPct">0%</h4>
+                                    <small class="text-muted">Terdistribusi</small>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-start w-100">
+                                <p class="small text-muted mb-1"><i class="fa-solid fa-circle text-gold me-2"></i>Hadiah Terbagi: <span id="lblHadiahTerbagi">0</span> unit</p>
+                                <p class="small text-muted mb-0"><i class="fa-solid fa-circle text-secondary me-2"></i>Sisa Tersedia: <span id="lblHadiahSisa">0</span> unit</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Data Peserta -->
+            <section id="section-peserta" class="app-section d-none">
+                <div class="glass-panel p-4 mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <h5 class="fw-bold text-gold m-0"><i class="fa-solid fa-users me-2"></i>Kelola Data Peserta</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-gold btn-sm" data-bs-toggle="modal" data-bs-target="#modalTambahPeserta"><i class="fa-solid fa-plus me-1"></i>Tambah</button>
+                            <button class="btn btn-outline-warning btn-sm" id="btnDownloadTemplateExcel"><i class="fa-solid fa-download me-1"></i>Template Excel</button>
+                            <label class="btn btn-blue btn-sm m-0 cursor-pointer">
+                                <i class="fa-solid fa-file-excel me-1"></i>Import Excel
+                                <input type="file" id="importExcelPeserta" accept=".xlsx, .xls" class="d-none">
+                            </label>
+                            <label class="btn btn-glass btn-sm m-0 cursor-pointer">
+                                <i class="fa-solid fa-file-csv me-1"></i>Import CSV
+                                <input type="file" id="importCsvPeserta" accept=".csv" class="d-none">
+                            </label>
+                            <button class="btn btn-outline-danger btn-sm" id="btnHapusSemuaPeserta"><i class="fa-solid fa-trash me-1"></i>Kosongkan</button>
+                        </div>
+                    </div>
+
+                    <!-- Search & Counter -->
+                    <div class="row g-3 align-items-center mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark border-secondary text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                <input type="text" id="searchPeserta" class="form-control bg-dark border-secondary text-white" placeholder="Cari peserta...">
+                            </div>
+                        </div>
+                        <div class="col-md-8 text-end">
+                            <span class="badge bg-secondary p-2">Total Peserta: <span id="countTotalPeserta">0</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Table Peserta -->
+                    <div class="table-responsive" style="max-height: 500px;">
+                        <table class="table table-glass text-white mb-0" id="tablePeserta">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Nomor Peserta</th>
+                                    <th>Nama Lengkap</th>
+                                    <th>Instansi</th>
+                                    <th>No. HP</th>
+                                    <th class="text-end">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyPeserta">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Data Hadiah -->
+            <section id="section-hadiah" class="app-section d-none">
+                <div class="glass-panel p-4 mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <h5 class="fw-bold text-gold m-0"><i class="fa-solid fa-gift me-2"></i>Kelola Data Hadiah</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-gold btn-sm" data-bs-toggle="modal" data-bs-target="#modalTambahHadiah"><i class="fa-solid fa-plus me-1"></i>Tambah</button>
+                            <button class="btn btn-outline-warning btn-sm" id="btnDownloadTemplateHadiah"><i class="fa-solid fa-download me-1"></i>Template Excel</button>
+                            <label class="btn btn-blue btn-sm m-0 cursor-pointer">
+                                <i class="fa-solid fa-file-excel me-1"></i>Import Excel
+                                <input type="file" id="importExcelHadiah" accept=".xlsx, .xls" class="d-none">
+                            </label>
+                            <button class="btn btn-success btn-sm" id="btnExportHadiahExcel"><i class="fa-solid fa-file-export me-1"></i>Export Excel</button>
+                            <button class="btn btn-outline-danger btn-sm" id="btnHapusSemuaHadiah"><i class="fa-solid fa-trash me-1"></i>Kosongkan</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-glass text-white mb-0" id="tableHadiah">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Tingkatan</th>
+                                    <th>Nama Hadiah</th>
+                                    <th>Gambar</th>
+                                    <th>Jumlah</th>
+                                    <th>Sisa</th>
+                                    <th class="text-end">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyHadiah">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Pengundian -->
+            <section id="section-pengundian" class="app-section d-none">
+                <div class="row g-4">
+                    <!-- Left: Draw Machine -->
+                    <div class="col-lg-8">
+                        <div class="glass-panel-gold p-4 text-center">
+                            <!-- Draw Configuration selector -->
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-3">
+                                <div>
+                                    <span class="badge bg-gold text-dark fw-bold px-3 py-2 text-uppercase" id="selectedPrizeTier">GRAND PRIZE</span>
+                                    <h4 class="text-white mt-2 mb-0" id="selectedPrizeName">Pilih hadiah terlebih dahulu</h4>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <select class="form-select form-select-sm bg-dark border-secondary text-white w-auto" id="selectTargetHadiah">
+                                        <option value="">-- Pilih Target Hadiah --</option>
+                                    </select>
+                                    <select class="form-select form-select-sm bg-dark border-secondary text-white w-auto" id="drawModeSelector">
+                                        <option value="rolling">Mode Rolling</option>
+                                        <option value="wheel">Mode Roda (Lucky Wheel)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Prize Image Banner -->
+                            <div class="mb-4">
+                                <img id="displayPrizeImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='200' viewBox='0 0 400 200'><rect width='100%' height='100%' fill='%231a1a1a'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23D4AF37' font-size='20' font-family='sans-serif'>Pilih Hadiah Untuk Memulai</text></svg>" alt="Prize" class="prize-banner-image">
+                            </div>
+
+                            <!-- Display Draw Container (Rolling or Wheel) -->
+                            <div id="drawWorkspace" class="mb-4">
+                                <!-- Rolling Container -->
+                                <div id="rollingDrawContainer" class="rolling-container">
+                                    <div id="rollingList" class="rolling-list">
+                                        <!-- Dynamic rolling items -->
+                                        <div class="rolling-item">Mulai Pengundian</div>
+                                    </div>
+                                </div>
+
+                                <!-- Lucky Wheel Container -->
+                                <div id="wheelDrawContainer" class="d-none py-3">
+                                    <div class="wheel-wrapper">
+                                        <div class="wheel-pointer"></div>
+                                        <canvas id="wheelCanvas" width="320" height="320" class="wheel-canvas"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Control Buttons -->
+                            <div class="d-flex flex-wrap justify-content-center gap-3">
+                                <button id="btnStartDraw" class="btn btn-gold btn-lg px-4"><i class="fa-solid fa-play me-2"></i>MULAI</button>
+                                <button id="btnStopDraw" class="btn btn-outline-danger btn-lg px-4" disabled><i class="fa-solid fa-circle-stop me-2"></i>BERHENTI</button>
+                                <button id="btnRedraw" class="btn btn-blue btn-lg px-4" disabled><i class="fa-solid fa-rotate-left me-2"></i>UNDI LAGI</button>
+                                <button id="btnResetDraw" class="btn btn-glass btn-lg px-4"><i class="fa-solid fa-trash-can me-2"></i>RESET</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Quick Stats & Draw Settings -->
+                    <div class="col-lg-4">
+                        <div class="glass-panel p-4 mb-4">
+                            <h5 class="fw-bold text-gold mb-3"><i class="fa-solid fa-circle-question me-2"></i>Status Undian</h5>
+                            <ul class="list-group list-group-flush bg-transparent">
+                                <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between px-0">
+                                    <span>Tersedia Undian</span>
+                                    <strong class="text-success" id="lblPesertaReady">0 Peserta</strong>
+                                </li>
+                                <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between px-0">
+                                    <span>Hadiah Tersedia</span>
+                                    <strong class="text-gold" id="lblPrizeQuantityReady">0 unit</strong>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="glass-panel p-4">
+                            <h5 class="fw-bold text-gold mb-3"><i class="fa-solid fa-toggle-on me-2"></i>Aturan Pengundian</h5>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="chkUniqueWinner" checked>
+                                <label class="form-check-label text-white" for="chkUniqueWinner">Pemenang tidak dapat menang lagi</label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="chkAutoReducePrize" checked>
+                                <label class="form-check-label text-white" for="chkAutoReducePrize">Hadiah otomatis berkurang</label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="chkNoDuplicates" checked>
+                                <label class="form-check-label text-white" for="chkNoDuplicates">Kunci duplikasi peserta ganda</label>
+                            </div>
+                            <div class="mt-3 pt-3 border-top border-secondary">
+                                <label class="form-label text-white d-block">Durasi Pengundian</label>
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="number" id="drawDurationInput" class="form-control bg-dark border-secondary text-white" value="5" min="1" max="60">
+                                    <span class="input-group-text bg-dark border-secondary text-muted">detik</span>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="chkAutoStop" checked>
+                                    <label class="form-check-label text-white small" for="chkAutoStop">Otomatis berhenti setelah waktu habis</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Riwayat Pemenang -->
+            <section id="section-pemenang" class="app-section d-none">
+                <div class="glass-panel p-4 mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <h5 class="fw-bold text-gold m-0"><i class="fa-solid fa-trophy me-2"></i>Riwayat Pemenang</h5>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-blue btn-sm" id="btnExportWinnersExcel"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>
+                            <button class="btn btn-gold btn-sm" id="btnExportWinnersPdf"><i class="fa-solid fa-file-pdf me-1"></i>Export PDF</button>
+                            <button class="btn btn-glass btn-sm" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Cetak</button>
+                            <button class="btn btn-outline-danger btn-sm" id="btnClearWinners"><i class="fa-solid fa-trash-can me-1"></i>Hapus Riwayat</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-glass text-white mb-0" id="tableWinners">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Nama Pemenang</th>
+                                    <th>Nomor Peserta</th>
+                                    <th>Instansi</th>
+                                    <th>Hadiah</th>
+                                    <th>Waktu Menang</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyWinners">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Pengaturan -->
+            <section id="section-pengaturan" class="app-section d-none">
+                <div class="row g-4">
+                    <!-- General Settings -->
+                    <div class="col-md-6">
+                        <div class="glass-panel p-4 h-100">
+                            <h5 class="fw-bold text-gold mb-3"><i class="fa-solid fa-sliders me-2"></i>Pengaturan Sistem</h5>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-white">Upload Logo Kustom (PNG/JPG)</label>
+                                <input type="file" id="logoUploadInput" class="form-control bg-dark border-secondary text-white" accept="image/*">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-white">Upload Gambar Background (Kustom)</label>
+                                <input type="file" id="bgUploadInput" class="form-control bg-dark border-secondary text-white" accept="image/*">
+                                <button class="btn btn-glass btn-sm mt-2" id="btnResetBg">Reset Background Default</button>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-white d-block">Volume Suara & Musik</label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <i class="fa-solid fa-volume-high text-gold"></i>
+                                    <input type="range" id="soundVolume" class="form-range" min="0" max="1" step="0.1" value="0.7">
+                                </div>
+                            </div>
+
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="cfgToggleSound" checked>
+                                <label class="form-check-label text-white" for="cfgToggleSound">Aktifkan Efek Suara / Musik</label>
+                            </div>
+
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="cfgToggleAnimations" checked>
+                                <label class="form-check-label text-white" for="cfgToggleAnimations">Aktifkan Efek Animasi & Confetti</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Backup & Recovery -->
+                    <div class="col-md-6">
+                        <div class="glass-panel p-4 h-100">
+                            <h5 class="fw-bold text-gold mb-3"><i class="fa-solid fa-database me-2"></i>Backup & Impor Data (JSON)</h5>
+                            <p class="small text-muted">Seluruh data peserta, hadiah, pemenang, dan pengaturan disimpan lokal di dalam browser Anda. Anda dapat mengekspor atau memulihkan data tersebut melalui modul ini.</p>
+                            
+                            <div class="d-grid gap-3 mt-4">
+                                <button class="btn btn-gold py-2" id="btnBackupJson"><i class="fa-solid fa-file-arrow-down me-2"></i>Ekspor Semua Data (JSON)</button>
+                                
+                                <div class="border border-secondary p-3 rounded bg-dark">
+                                    <label class="form-label text-gold fw-bold mb-2">Impor File Data (JSON)</label>
+                                    <input type="file" id="importJsonInput" class="form-control bg-dark border-secondary text-white" accept=".json">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keamanan Akun - full width row below -->
+                <div class="row g-4 mt-0">
+                    <div class="col-12">
+                        <div class="glass-panel p-4">
+                            <h5 class="fw-bold text-gold mb-1"><i class="fa-solid fa-shield-halved me-2"></i>Keamanan Akun Admin</h5>
+                            <p class="small text-muted mb-4">Ubah username dan password yang digunakan untuk masuk ke panel admin. Wajib memasukkan password saat ini untuk konfirmasi.</p>
+                            <form id="formUbahKredensial">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-white">Username Baru</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary text-gold"><i class="fa-solid fa-user"></i></span>
+                                            <input type="text" id="newAdminUser" class="form-control bg-dark border-secondary text-white" placeholder="Masukkan username baru" autocomplete="username">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-white">Password Baru</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary text-gold"><i class="fa-solid fa-key"></i></span>
+                                            <input type="password" id="newAdminPass" class="form-control bg-dark border-secondary text-white" placeholder="Password baru" autocomplete="new-password">
+                                            <button type="button" class="btn btn-outline-secondary" id="toggleNewPass" tabindex="-1"><i class="fa-solid fa-eye"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-white">Konfirmasi Password Baru</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary text-gold"><i class="fa-solid fa-key"></i></span>
+                                            <input type="password" id="confirmAdminPass" class="form-control bg-dark border-secondary text-white" placeholder="Ulangi password baru" autocomplete="new-password">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-white">Password Saat Ini <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary text-gold"><i class="fa-solid fa-lock"></i></span>
+                                            <input type="password" id="currentAdminPass" class="form-control bg-dark border-secondary text-white" placeholder="Wajib diisi untuk konfirmasi" autocomplete="current-password" required>
+                                            <button type="button" class="btn btn-outline-secondary" id="toggleCurrentPass" tabindex="-1"><i class="fa-solid fa-eye"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 d-flex align-items-end">
+                                        <!-- show current credentials hint -->
+                                        <div class="glass-panel p-3 w-100" style="border-color: rgba(212,175,55,0.3);">
+                                            <small class="text-muted d-block mb-1"><i class="fa-solid fa-circle-info me-1 text-gold"></i>Kredensial Aktif Saat Ini</small>
+                                            <div class="d-flex gap-3">
+                                                <span class="text-white small">Username: <strong id="showCurrentUser" class="text-gold">admin</strong></span>
+                                                <span class="text-white small">Password: <strong id="showCurrentPassMask" class="text-gold">••••••••</strong></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-gold px-4"><i class="fa-solid fa-floppy-disk me-2"></i>Simpan Perubahan Kredensial</button>
+                                        <button type="button" class="btn btn-glass ms-2" id="btnResetKredensial"><i class="fa-solid fa-rotate-left me-1"></i>Reset ke Default</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pemenang Khusus / Settingan - full width row below -->
+                <div class="row g-4 mt-3">
+                    <div class="col-12">
+                        <div class="glass-panel p-4">
+                            <h5 class="fw-bold text-gold mb-1"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Pengaturan Pemenang Khusus (Targeted Draw)</h5>
+                            <p class="small text-muted mb-4">Tentukan peserta tertentu untuk memenangkan hadiah tertentu secara otomatis saat pengundian berlangsung. Hanya admin yang dapat melihat dan mengatur ini.</p>
+                            
+                            <form id="formTambahPemenangKhusus">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label text-white">Target Hadiah</label>
+                                        <select id="selectSpecialPrize" class="form-select bg-dark text-white border-secondary" required>
+                                            <option value="">-- Pilih Hadiah --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label text-white">Target Peserta</label>
+                                        <select id="selectSpecialParticipant" class="form-select bg-dark text-white border-secondary" required>
+                                            <option value="">-- Pilih Peserta --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="submit" class="btn btn-gold w-100"><i class="fa-solid fa-plus me-1"></i>Pasang</button>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <div class="table-responsive mt-4">
+                                <table class="table table-glass text-white mb-0" id="tableSpecialWinners">
+                                    <thead>
+                                        <tr>
+                                            <th>No</th>
+                                            <th>Nama Hadiah</th>
+                                            <th>Tingkatan</th>
+                                            <th>Pemenang Khusus</th>
+                                            <th>Nomor Peserta</th>
+                                            <th>Instansi</th>
+                                            <th class="text-end">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodySpecialWinners">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals area -->
+    <!-- Modal Tambah Peserta -->
+    <div class="modal fade" id="modalTambahPeserta" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-gold"><i class="fa-solid fa-user-plus me-2"></i>Tambah Peserta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formTambahPeserta">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nomor Peserta (Otomatis jika kosong)</label>
+                            <input type="text" id="inputNoPeserta" class="form-control bg-dark text-white border-secondary">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nama Lengkap</label>
+                            <input type="text" id="inputNamaPeserta" class="form-control bg-dark text-white border-secondary" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Instansi</label>
+                            <input type="text" id="inputInstansiPeserta" class="form-control bg-dark text-white border-secondary" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">No. HP (Opsional)</label>
+                            <input type="text" id="inputHpPeserta" class="form-control bg-dark text-white border-secondary">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-gold">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Hadiah -->
+    <div class="modal fade" id="modalTambahHadiah" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-gold"><i class="fa-solid fa-gift me-2"></i>Tambah Hadiah</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formTambahHadiah">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Tingkatan Hadiah</label>
+                            <select id="inputTingkatHadiah" class="form-select bg-dark text-white border-secondary" required>
+                                <option value="Doorprize">Doorprize</option>
+                                <option value="Hiburan">Hiburan</option>
+                                <option value="Grand Prize">Grand Prize</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nama Hadiah</label>
+                            <input type="text" id="inputNamaHadiah" class="form-control bg-dark text-white border-secondary" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Jumlah Unit</label>
+                            <input type="number" id="inputJumlahHadiah" class="form-control bg-dark text-white border-secondary" value="1" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gambar Hadiah (Upload File)</label>
+                            <input type="file" id="inputGambarHadiah" class="form-control bg-dark text-white border-secondary" accept="image/*">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Deskripsi Hadiah</label>
+                            <textarea id="inputDescHadiah" class="form-control bg-dark text-white border-secondary" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-gold">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN TV VIEW OVERLAY -->
+    <div id="tvShowOverlay" class="tv-overlay">
+        <!-- Spotlights -->
+        <div class="spotlight spotlight-left"></div>
+        <div class="spotlight spotlight-right"></div>
+        <div class="bulb-border"></div>
+
+        <!-- TV Header -->
+        <div class="d-flex justify-content-between align-items-center z-index-10 relative">
+            <div class="d-flex align-items-center gap-3">
+                <img id="tvLogo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='none' stroke='%23D4AF37' stroke-width='4'/><path d='M30 40 L50 20 L70 40 L50 60 Z' fill='%23D4AF37'/></svg>" alt="Logo" style="height: 60px;">
+                <div>
+                    <h3 class="text-gold fw-bold m-0 font-outfit text-uppercase" id="tvEventName">APLIKASI UNDIAN</h3>
+                    <small class="text-white opacity-75" id="tvEventOrg">SESKOAD</small>
+                </div>
+            </div>
+            <button class="btn btn-outline-light btn-sm" id="btnCloseTv"><i class="fa-solid fa-xmark me-2"></i>Tutup Layar Besar</button>
+        </div>
+
+        <!-- TV Countdown Display -->
+        <div id="tvCountdownText" class="tv-countdown">3</div>
+
+        <!-- TV Middle: Stage & Prize Panel -->
+        <div class="row align-items-center justify-content-center my-auto z-index-10 position-relative w-100">
+            <div class="col-md-5 text-center mb-4 mb-md-0">
+                <div class="glass-panel p-4 d-inline-block">
+                    <span class="badge bg-gold text-dark fw-bold px-3 py-1 mb-2 text-uppercase" id="tvPrizeTier">GRAND PRIZE</span>
+                    <h2 class="text-white fw-bold mb-3" id="tvPrizeName">Honda PCX 160 ABS</h2>
+                    <img id="tvPrizeImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='100%' height='100%' fill='%23222'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23D4AF37' font-size='16'>Gambar Hadiah</text></svg>" alt="Hadiah TV" style="max-height: 250px; object-fit: contain; border-radius: 12px;">
+                </div>
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="glass-panel-gold p-5" style="min-height: 320px; display: flex; flex-direction: column; justify-content: center;">
+                    <div id="tvDrawingOutput">
+                        <h4 class="text-gold letter-spacing-2 fw-semibold mb-3">PENGUNDIAN DOORPRIZE</h4>
+                        <div id="tvRollingContainer" class="rolling-container mb-4">
+                            <div id="tvRollingList" class="rolling-list">
+                                <div class="rolling-item">SIAP DIUNDI</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action buttons inside TV Mode -->
+                    <div class="d-flex justify-content-center gap-3">
+                        <button id="btnTvStart" class="btn btn-gold btn-lg px-4 py-3"><i class="fa-solid fa-play me-2"></i>MULAI DRAW</button>
+                        <button id="btnTvStop" class="btn btn-outline-danger btn-lg px-4 py-3" disabled><i class="fa-solid fa-circle-stop me-2"></i>BERHENTI</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TV Footer: Running text -->
+        <div class="text-center bg-black py-2 rounded border border-secondary z-index-10 position-relative">
+            <marquee id="tvMarqueeText" class="text-gold fw-bold mb-0" scrollamount="6">
+                Selamat kepada pemenang! Silakan menghubungi panitia untuk mengambil hadiah. Serta selamat menyaksikan keseruan undian hari ini.
+            </marquee>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom Application Code -->
+    <script src="script.js"></script>
+</body>
+</html>

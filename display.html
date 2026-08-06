@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layar Undian - Audience Display</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --gold: #D4AF37;
+            --gold-glow: rgba(212,175,55,0.45);
+            --blue: #2563EB;
+            --bg-dark: #0a0a0a;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* ============================
+           BACKGROUND
+        ============================ */
+        #displayBg {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #1c1c1c 0%, #050505 100%);
+            background-size: cover;
+            background-position: center;
+            z-index: 0;
+        }
+        #displayBg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+        }
+
+        /* ============================
+           SPOTLIGHT EFFECTS
+        ============================ */
+        .spotlight {
+            position: fixed;
+            top: 0;
+            width: 25%;
+            height: 100%;
+            background: radial-gradient(ellipse at top, rgba(212,175,55,0.18) 0%, transparent 70%);
+            pointer-events: none;
+            transform-origin: top center;
+            z-index: 1;
+        }
+        .spotlight-left  { left: 8%;  animation: swingLeft  7s infinite ease-in-out alternate; }
+        .spotlight-right { right: 8%; animation: swingRight 7s infinite ease-in-out alternate; }
+
+        @keyframes swingLeft  { 0%{transform:rotate(-28deg)} 100%{transform:rotate(10deg)}  }
+        @keyframes swingRight { 0%{transform:rotate(28deg)}  100%{transform:rotate(-10deg)} }
+
+        /* Bulb border decoration */
+        .bulb-border {
+            position: fixed;
+            inset: 8px;
+            border: 2px dashed rgba(212,175,55,0.15);
+            border-radius: 12px;
+            pointer-events: none;
+            z-index: 2;
+            animation: borderPulse 2.5s infinite;
+        }
+        @keyframes borderPulse {
+            0%,100% { border-color: rgba(212,175,55,0.15); }
+            50%      { border-color: rgba(212,175,55,0.40); }
+        }
+
+        /* ============================
+           MAIN LAYOUT
+        ============================ */
+        #displayWrapper {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 18px 24px 14px;
+            gap: 10px;
+        }
+
+        /* ============================
+           HEADER
+        ============================ */
+        #displayHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #displayHeader .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        #displayLogo {
+            height: 64px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 8px var(--gold-glow));
+        }
+        #displayEventName {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--gold);
+            text-shadow: 0 0 12px var(--gold-glow);
+            letter-spacing: 1px;
+            line-height: 1.1;
+        }
+        #displayEventOrg {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 1px;
+        }
+
+        /* ============================
+           STAGE AREA
+        ============================ */
+        #displayStage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 36px;
+        }
+
+        /* Prize card */
+        .prize-card {
+            background: rgba(20,20,20,0.75);
+            backdrop-filter: blur(14px);
+            border: 2px solid rgba(212,175,55,0.5);
+            border-radius: 20px;
+            padding: 30px 28px;
+            min-width: 300px;
+            max-width: 360px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(212,175,55,0.2);
+            flex-shrink: 0;
+        }
+        .prize-tier-badge {
+            display: inline-block;
+            background: var(--gold);
+            color: #000;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 4px 18px;
+            border-radius: 50px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        #displayPrizeName {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+        #displayPrizeImg {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+
+        /* Rolling card */
+        .rolling-card {
+            background: rgba(15,15,15,0.80);
+            backdrop-filter: blur(16px);
+            border: 2.5px solid var(--gold);
+            border-radius: 20px;
+            padding: 30px 32px;
+            flex: 1;
+            max-width: 620px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 40px var(--gold-glow);
+            min-height: 320px;
+        }
+        .rolling-label {
+            font-size: 1rem;
+            letter-spacing: 4px;
+            font-weight: 600;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            opacity: 0.9;
+        }
+
+        /* Rolling container */
+        .rolling-container-display {
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid rgba(212,175,55,0.3);
+            border-radius: 14px;
+            background: rgba(0,0,0,0.5);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 15px rgba(212,175,55,0.15);
+        }
+        .rolling-name-big {
+            width: 100%;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px 16px;
+        }
+        .rolling-name-big .name-text {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 12px rgba(255,255,255,0.4);
+            line-height: 1.1;
+        }
+        .rolling-name-big .instansi-text {
+            font-size: 1.1rem;
+            color: var(--gold);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        .rolling-name-big .no-text {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 2px;
+        }
+
+        /* Winner reveal state */
+        .rolling-name-big.winner-state .name-text {
+            font-size: 3rem;
+            color: var(--gold);
+            text-shadow: 0 0 20px var(--gold-glow);
+            animation: winnerPulse 1s ease infinite alternate;
+        }
+        @keyframes winnerPulse {
+            0%  { text-shadow: 0 0 10px var(--gold-glow); }
+            100%{ text-shadow: 0 0 35px rgba(212,175,55,0.9), 0 0 60px var(--gold-glow); }
+        }
+
+        /* ============================
+           COUNTDOWN OVERLAY
+        ============================ */
+        #displayCountdown {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            background: rgba(0,0,0,0.6);
+        }
+        #displayCountdown .count-num {
+            font-size: 12rem;
+            font-weight: 900;
+            color: var(--gold);
+            text-shadow: 0 0 40px var(--gold-glow), 0 0 80px rgba(212,175,55,0.5);
+            animation: countPop 0.3s ease;
+        }
+        @keyframes countPop {
+            0%  { transform: scale(0.5); opacity:0; }
+            70% { transform: scale(1.1); }
+            100%{ transform: scale(1);   opacity:1; }
+        }
+
+        /* ============================
+           WINNER OVERLAY BANNER
+        ============================ */
+        #winnerBanner {
+            position: fixed;
+            bottom: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(20,20,20,0.95), rgba(30,20,0,0.95));
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 22px 50px;
+            text-align: center;
+            box-shadow: 0 -4px 40px var(--gold-glow);
+            transition: bottom 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 150;
+            min-width: 500px;
+        }
+        #winnerBanner.visible { bottom: 80px; }
+        #winnerBanner .winner-label {
+            font-size: 0.85rem;
+            letter-spacing: 4px;
+            color: var(--gold);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        #winnerBanner .winner-name {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+        #winnerBanner .winner-instansi {
+            color: var(--gold);
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        #winnerBanner .winner-no {
+            display: inline-block;
+            background: var(--gold);
+            color: #000;
+            font-weight: 700;
+            padding: 3px 20px;
+            border-radius: 50px;
+            margin-top: 8px;
+            font-size: 1rem;
+        }
+
+        /* ============================
+           FOOTER MARQUEE
+        ============================ */
+        #displayFooter {
+            background: rgba(0,0,0,0.75);
+            border: 1px solid rgba(212,175,55,0.25);
+            border-radius: 8px;
+            padding: 8px 16px;
+        }
+        #displayMarquee {
+            color: var(--gold);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        /* ============================
+           IDLE / STANDBY STATE
+        ============================ */
+        #displayIdle {
+            text-align: center;
+            color: rgba(255,255,255,0.25);
+        }
+        #displayIdle i {
+            font-size: 3rem;
+            color: rgba(212,175,55,0.2);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        /* Utility */
+        .text-gold { color: var(--gold) !important; }
+        .bg-gold    { background: var(--gold) !important; }
+    </style>
+</head>
+<body>
+
+<!-- Background Layer -->
+<div id="displayBg"></div>
+
+<!-- Spotlight Effects -->
+<div class="spotlight spotlight-left"></div>
+<div class="spotlight spotlight-right"></div>
+<div class="bulb-border"></div>
+
+<!-- Countdown Overlay -->
+<div id="displayCountdown">
+    <div class="count-num" id="displayCountNum">3</div>
+</div>
+
+<!-- Winner Banner (slide up) -->
+<div id="winnerBanner">
+    <div class="winner-label">🏆 SELAMAT KEPADA PEMENANG 🏆</div>
+    <div class="winner-name" id="bannerWinnerName">-</div>
+    <div class="winner-instansi" id="bannerWinnerInstansi">-</div>
+    <div class="winner-no" id="bannerWinnerNo">NO. -</div>
+    <div style="margin-top:10px; color: rgba(255,255,255,0.6); font-size:0.9rem;">
+        Memenangkan: <span id="bannerWinnerPrize" class="text-gold fw-bold">-</span>
+    </div>
+</div>
+
+<!-- Main Display Wrapper -->
+<div id="displayWrapper">
+
+    <!-- Header -->
+    <div id="displayHeader">
+        <div class="brand">
+            <img id="displayLogo"
+                 src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='none' stroke='%23D4AF37' stroke-width='4'/><path d='M30 40 L50 20 L70 40 L50 60 Z' fill='%23D4AF37'/></svg>"
+                 alt="Logo">
+            <div>
+                <div id="displayEventName">UNDIAN DOORPRIZE</div>
+                <div id="displayEventOrg">PENYELENGGARA</div>
+            </div>
+        </div>
+        <!-- Clock -->
+        <div style="text-align:right;">
+            <div id="displayClock" style="font-size:1.6rem; font-weight:700; color:var(--gold); font-variant-numeric: tabular-nums;">00:00:00</div>
+            <div id="displayDate" style="font-size:0.85rem; color:rgba(255,255,255,0.5);">—</div>
+        </div>
+    </div>
+
+    <!-- Stage -->
+    <div id="displayStage">
+
+        <!-- Prize Panel -->
+        <div class="prize-card" id="prizePanel">
+            <div class="prize-tier-badge" id="displayPrizeTier">DOORPRIZE</div>
+            <div id="displayPrizeName">Menunggu Hadiah...</div>
+            <img id="displayPrizeImg"
+                 src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='180' viewBox='0 0 300 180'><rect width='100%' height='100%' fill='%23111'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23D4AF37' font-size='14'>Gambar Hadiah</text></svg>"
+                 alt="Hadiah">
+        </div>
+
+        <!-- Rolling / Idle Panel -->
+        <div class="rolling-card">
+            <div class="rolling-label" id="displayDrawLabel">PENGUNDIAN DOORPRIZE</div>
+            <div class="rolling-container-display">
+                <div id="displayRollingSlot" class="rolling-name-big">
+                    <div class="name-text" style="font-size:1.8rem; color:rgba(255,255,255,0.25);">
+                        <i class="fa-solid fa-circle-play mb-2 d-block" style="font-size:2.5rem; color:rgba(212,175,55,0.3);"></i>
+                        Menunggu Pengundian
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Marquee -->
+    <div id="displayFooter">
+        <marquee id="displayMarquee" scrollamount="5">
+            Selamat kepada pemenang! Silakan menghubungi panitia untuk mengambil hadiah. Serta selamat menyaksikan keseruan undian hari ini.
+        </marquee>
+    </div>
+</div>
+
+<script>
+/**
+ * DISPLAY.HTML — Layar Audience Terpisah
+ * Menerima perintah dari index.html melalui BroadcastChannel API.
+ */
+
+// ============================================================
+// BROADCAST CHANNEL — Listener dari Admin
+// ============================================================
+const channel = new BroadcastChannel('undian_display_channel');
+
+// ============================================================
+// AUDIO (Web Audio API)
+// ============================================================
+let audioCtx = null;
+function getAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+
+function playSound(type, volume = 0.7) {
+    try {
+        const ctx = getAudio();
+        if (ctx.state === 'suspended') ctx.resume();
+        const vol = ctx.createGain();
+        vol.gain.setValueAtTime(volume, ctx.currentTime);
+        vol.connect(ctx.destination);
+
+        if (type === 'tick') {
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(650, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.05);
+            g.gain.setValueAtTime(0.3, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+            osc.connect(g); g.connect(vol);
+            osc.start(); osc.stop(ctx.currentTime + 0.06);
+
+        } else if (type === 'countdown') {
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            g.gain.setValueAtTime(0.6, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+            osc.connect(g); g.connect(vol);
+            osc.start(); osc.stop(ctx.currentTime + 0.3);
+
+        } else if (type === 'fanfare') {
+            const now   = ctx.currentTime;
+            const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const g   = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, now + i * 0.15);
+                g.gain.setValueAtTime(0, now);
+                g.gain.linearRampToValueAtTime(0.18, now + i * 0.15 + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.85);
+                osc.connect(g); g.connect(vol);
+                osc.start(now + i * 0.15);
+                osc.stop(now + i * 0.15 + 0.9);
+            });
+        }
+    } catch(e) { console.error('audio:', e); }
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+    const now  = new Date();
+    const h    = String(now.getHours()).padStart(2,'0');
+    const m    = String(now.getMinutes()).padStart(2,'0');
+    const s    = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('displayClock').innerText = `${h}:${m}:${s}`;
+    const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
+    document.getElementById('displayDate').innerText = now.toLocaleDateString('id-ID', opts);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// STATE HELPERS
+// ============================================================
+let currentVolume = 0.7;
+let soundEnabled  = true;
+let animEnabled   = true;
+let tickTimer     = null;
+
+function applyBg(url) {
+    const bg = document.getElementById('displayBg');
+    if (url) {
+        bg.style.backgroundImage = `url(${url})`;
+        bg.style.backgroundSize  = 'cover';
+        bg.style.backgroundPosition = 'center';
+    } else {
+        bg.style.backgroundImage = '';
+    }
+}
+
+// ============================================================
+// MESSAGE HANDLER
+// ============================================================
+channel.addEventListener('message', (e) => {
+    const msg = e.data;
+    if (!msg || !msg.type) return;
+
+    switch(msg.type) {
+
+        // --- Konfigurasi & tampilan ---
+        case 'INIT':
+            applyInit(msg.payload);
+            break;
+
+        case 'UPDATE_PRIZE':
+            showPrize(msg.payload);
+            break;
+
+        case 'UPDATE_MARQUEE':
+            document.getElementById('displayMarquee').innerText = msg.payload;
+            break;
+
+        // --- Countdown sebelum mulai ---
+        case 'COUNTDOWN':
+            showCountdown(msg.payload.value);
+            break;
+
+        case 'COUNTDOWN_END':
+            hideCountdown();
+            break;
+
+        // --- Putaran nama ---
+        case 'ROLLING_TICK':
+            showRolling(msg.payload);
+            break;
+
+        // --- Pemenang ---
+        case 'WINNER':
+            showWinner(msg.payload);
+            break;
+
+        // --- Reset ---
+        case 'RESET':
+            resetDisplay();
+            break;
+
+        // --- Settings ---
+        case 'SETTINGS':
+            currentVolume = msg.payload.volume  ?? currentVolume;
+            soundEnabled  = msg.payload.sound   ?? soundEnabled;
+            animEnabled   = msg.payload.anim    ?? animEnabled;
+            break;
+    }
+});
+
+// ============================================================
+// DISPLAY FUNCTIONS
+// ============================================================
+
+function applyInit(payload) {
+    // Background
+    applyBg(payload.bg || '');
+    // Logo
+    if (payload.logo) document.getElementById('displayLogo').src = payload.logo;
+    // Event info
+    document.getElementById('displayEventName').innerText = payload.name || 'UNDIAN DOORPRIZE';
+    document.getElementById('displayEventOrg').innerText  = payload.org  || '';
+    // Marquee
+    if (payload.marqueeText) {
+        document.getElementById('displayMarquee').innerText = payload.marqueeText;
+    }
+    // Settings
+    currentVolume = payload.volume  ?? currentVolume;
+    soundEnabled  = payload.sound   ?? soundEnabled;
+    animEnabled   = payload.anim    ?? animEnabled;
+}
+
+function showPrize(prize) {
+    document.getElementById('displayPrizeTier').innerText = prize.tier || 'DOORPRIZE';
+    document.getElementById('displayPrizeName').innerText = prize.name || '-';
+    const placeholder = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='180' viewBox='0 0 300 180'><rect width='100%' height='100%' fill='%23111'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23D4AF37' font-size='14'>Gambar Hadiah</text></svg>";
+    document.getElementById('displayPrizeImg').src = prize.img || placeholder;
+}
+
+function showCountdown(val) {
+    const overlay = document.getElementById('displayCountdown');
+    const numEl   = document.getElementById('displayCountNum');
+    overlay.style.display = 'flex';
+    // Re-trigger animation
+    numEl.innerText = val;
+    numEl.classList.remove('animate__animated','animate__zoomIn');
+    void numEl.offsetWidth;
+    numEl.classList.add('animate__animated','animate__zoomIn');
+    if (soundEnabled) playSound('countdown', currentVolume);
+}
+
+function hideCountdown() {
+    document.getElementById('displayCountdown').style.display = 'none';
+}
+
+function showRolling(data) {
+    const slot = document.getElementById('displayRollingSlot');
+    slot.classList.remove('winner-state');
+    slot.innerHTML = `
+        <div class="name-text">${data.nama}</div>
+        <div class="instansi-text">${data.instansi}</div>
+        <div class="no-text">Nomor: ${data.noPeserta}</div>
+    `;
+    if (soundEnabled) playSound('tick', currentVolume * 0.5);
+}
+
+function showWinner(data) {
+    // 1. Stop rolling — show winner in slot
+    clearInterval(tickTimer);
+    const slot = document.getElementById('displayRollingSlot');
+    slot.classList.add('winner-state');
+    slot.innerHTML = `
+        <div class="name-text animate__animated animate__zoomIn">${data.nama}</div>
+        <div class="instansi-text">${data.instansi}</div>
+        <div class="no-text" style="color:var(--gold); font-weight:700;">NO. PESERTA: ${data.noPeserta}</div>
+    `;
+
+    // 2. Slide-up winner banner
+    document.getElementById('bannerWinnerName').innerText    = data.nama;
+    document.getElementById('bannerWinnerInstansi').innerText = data.instansi;
+    document.getElementById('bannerWinnerNo').innerText      = `NO. ${data.noPeserta}`;
+    document.getElementById('bannerWinnerPrize').innerText   = data.hadiah;
+    const banner = document.getElementById('winnerBanner');
+    banner.classList.add('visible');
+
+    // 3. Sound
+    if (soundEnabled) playSound('fanfare', currentVolume);
+
+    // 4. Confetti
+    if (animEnabled) {
+        confetti({ particleCount: 180, spread: 90, origin: { y: 0.5 } });
+        setTimeout(() => {
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.4, x: 0.1 } });
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.4, x: 0.9 } });
+        }, 600);
+    }
+
+    // 5. Auto hide banner after 10s
+    setTimeout(() => banner.classList.remove('visible'), 10000);
+}
+
+function resetDisplay() {
+    const slot = document.getElementById('displayRollingSlot');
+    slot.classList.remove('winner-state');
+    slot.innerHTML = `
+        <div class="name-text" style="font-size:1.8rem; color:rgba(255,255,255,0.25);">
+            <i class="fa-solid fa-circle-play mb-2 d-block" style="font-size:2.5rem; color:rgba(212,175,55,0.3);"></i>
+            Menunggu Pengundian
+        </div>
+    `;
+    document.getElementById('winnerBanner').classList.remove('visible');
+    hideCountdown();
+}
+
+// ============================================================
+// LOAD STATE FROM LOCAL STORAGE ON OPEN
+// ============================================================
+(function loadOnOpen() {
+    try {
+        const stored = localStorage.getItem('undian_doorprize_state');
+        if (!stored) return;
+        const s = JSON.parse(stored);
+        applyBg(s.settings?.bg || '');
+        if (s.settings?.logo) document.getElementById('displayLogo').src = s.settings.logo;
+        document.getElementById('displayEventName').innerText = s.eventConfig?.name || 'UNDIAN DOORPRIZE';
+        document.getElementById('displayEventOrg').innerText  = s.eventConfig?.org  || '';
+        if (s.eventConfig?.marqueeText) {
+            document.getElementById('displayMarquee').innerText = s.eventConfig.marqueeText;
+        }
+        currentVolume = s.settings?.volume  ?? 0.7;
+        soundEnabled  = s.settings?.soundEnabled ?? true;
+        animEnabled   = s.settings?.animEnabled  ?? true;
+    } catch(e) { console.error('display loadOnOpen:', e); }
+})();
+
+// Unlock audio context on first click
+document.addEventListener('click', () => {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+}, { once: true });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -160,8 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
             marqueeText: state.eventConfig.marqueeText || '',
             volume:      state.settings.volume,
             sound:       state.settings.soundEnabled,
-            anim:        state.settings.animEnabled
+            anim:        state.settings.animEnabled,
+            drawMode:    state.settings.drawMode || 'rolling'
         });
+        
+        if (state.settings.drawMode === 'wheel') {
+            const segments = readyParticipants.slice(0, 12).map(p => ({ nama: p.nama, instansi: p.instansi }));
+            broadcastToDisplay('INIT_WHEEL', { segments });
+        }
+
         if (selectedPrize) {
             broadcastToDisplay('UPDATE_PRIZE', {
                 tier: selectedPrize.tingkat,
@@ -846,6 +853,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             calculateReadyParticipants();
+            if (state.settings.drawMode === 'wheel') {
+                initWheel();
+            }
         } else {
             document.getElementById('selectedPrizeTier').innerText = 'NONE';
             document.getElementById('selectedPrizeName').innerText = 'Pilih hadiah terlebih dahulu';
@@ -890,6 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('wheelDrawContainer').classList.add('d-none');
             document.getElementById('rollingDrawContainer').classList.remove('d-none');
         }
+        broadcastToDisplay('UPDATE_MODE', { drawMode: state.settings.drawMode });
     });
 
     // --- Lucky Wheel Drawing Code ---
@@ -897,11 +908,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let wheelSpeed = 0;
     function initWheel() {
         const canvas = document.getElementById('wheelCanvas');
+        if (!canvas) return;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0,0,320,320);
         
         // Draw segment slices
         const segments = readyParticipants.slice(0, 12); // Limit to 12 visible names on wheel
+        
+        // Kirim segmen peserta ke layar besar
+        broadcastToDisplay('INIT_WHEEL', { segments: segments.map(p => ({ nama: p.nama, instansi: p.instansi })) });
+
         if (segments.length === 0) {
             ctx.fillStyle = '#D4AF37';
             ctx.font = '16px Outfit';
@@ -1029,11 +1045,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startWheelAnimation() {
         wheelSpeed = 0.2;
+        broadcastToDisplay('START_WHEEL', {});
         function animate() {
             if (!isDrawing) return;
             wheelAngle += wheelSpeed;
             const canvas = document.getElementById('wheelCanvas');
-            canvas.style.transform = `rotate(${wheelAngle}rad)`;
+            if (canvas) {
+                canvas.style.transform = `rotate(${wheelAngle}rad)`;
+            }
             requestAnimationFrame(animate);
         }
         animate();

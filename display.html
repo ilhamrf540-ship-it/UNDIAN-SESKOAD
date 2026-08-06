@@ -363,6 +363,33 @@
             display: block;
         }
 
+        /* Lucky Wheel styles */
+        .wheel-wrapper {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto;
+        }
+        .wheel-canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 5px solid var(--gold);
+            box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+        }
+        .wheel-pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid var(--gold);
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+        }
+
         /* Utility */
         .text-gold { color: var(--gold) !important; }
         .bg-gold    { background: var(--gold) !important; }
@@ -431,10 +458,18 @@
         <div class="rolling-card">
             <div class="rolling-label" id="displayDrawLabel">PENGUNDIAN DOORPRIZE</div>
             <div class="rolling-container-display">
+                <!-- Rolling Name View -->
                 <div id="displayRollingSlot" class="rolling-name-big">
                     <div class="name-text" style="font-size:1.8rem; color:rgba(255,255,255,0.25);">
                         <i class="fa-solid fa-circle-play mb-2 d-block" style="font-size:2.5rem; color:rgba(212,175,55,0.3);"></i>
                         Menunggu Pengundian
+                    </div>
+                </div>
+                <!-- Lucky Wheel View -->
+                <div id="displayWheelSlot" class="d-none py-2 text-center justify-content-center">
+                    <div class="wheel-wrapper" style="transform: scale(1.1); margin: 20px auto;">
+                        <div class="wheel-pointer"></div>
+                        <canvas id="displayWheelCanvas" width="320" height="320" class="wheel-canvas"></canvas>
                     </div>
                 </div>
             </div>
@@ -603,6 +638,19 @@ channel.addEventListener('message', (e) => {
             soundEnabled  = msg.payload.sound   ?? soundEnabled;
             animEnabled   = msg.payload.anim    ?? animEnabled;
             break;
+
+        // --- Mode & Roda (Lucky Wheel) ---
+        case 'UPDATE_MODE':
+            toggleDrawMode(msg.payload.drawMode);
+            break;
+
+        case 'INIT_WHEEL':
+            initWheel(msg.payload.segments);
+            break;
+
+        case 'START_WHEEL':
+            startWheelAnimation();
+            break;
     }
 });
 
@@ -626,6 +674,10 @@ function applyInit(payload) {
     currentVolume = payload.volume  ?? currentVolume;
     soundEnabled  = payload.sound   ?? soundEnabled;
     animEnabled   = payload.anim    ?? animEnabled;
+    // Mode
+    if (payload.drawMode) {
+        toggleDrawMode(payload.drawMode);
+    }
 }
 
 function showPrize(prize) {
@@ -663,7 +715,8 @@ function showRolling(data) {
 }
 
 function showWinner(data) {
-    // 1. Stop rolling — show winner in slot
+    // 1. Stop rolling & spinning
+    isSpinning = false;
     clearInterval(tickTimer);
     const slot = document.getElementById('displayRollingSlot');
     slot.classList.add('winner-state');
@@ -698,6 +751,7 @@ function showWinner(data) {
 }
 
 function resetDisplay() {
+    isSpinning = false;
     const slot = document.getElementById('displayRollingSlot');
     slot.classList.remove('winner-state');
     slot.innerHTML = `
@@ -708,6 +762,93 @@ function resetDisplay() {
     `;
     document.getElementById('winnerBanner').classList.remove('visible');
     hideCountdown();
+}
+
+// --- Lucky Wheel (Roda Undian) Display Functions ---
+let wheelSegments = [];
+let wheelAngle = 0;
+let wheelSpeed = 0;
+let isSpinning = false;
+
+function toggleDrawMode(mode) {
+    const rolling = document.getElementById('displayRollingSlot');
+    const wheel = document.getElementById('displayWheelSlot');
+    if (mode === 'wheel') {
+        if (rolling) rolling.classList.add('d-none');
+        if (wheel) {
+            wheel.classList.remove('d-none');
+            wheel.classList.add('d-flex');
+        }
+    } else {
+        if (wheel) {
+            wheel.classList.add('d-none');
+            wheel.classList.remove('d-flex');
+        }
+        if (rolling) rolling.classList.remove('d-none');
+    }
+}
+
+function initWheel(segments) {
+    wheelSegments = segments || [];
+    const canvas = document.getElementById('displayWheelCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 320, 320);
+    
+    if (wheelSegments.length === 0) {
+        ctx.fillStyle = '#D4AF37';
+        ctx.font = '16px Outfit';
+        ctx.fillText('Belum ada data', 110, 160);
+        return;
+    }
+
+    const arc = (2 * Math.PI) / wheelSegments.length;
+    wheelSegments.forEach((seg, i) => {
+        ctx.beginPath();
+        ctx.fillStyle = i % 2 === 0 ? '#1b1b1b' : '#2563EB';
+        ctx.strokeStyle = '#D4AF37';
+        ctx.lineWidth = 2;
+        ctx.arc(160, 160, 150, i * arc, (i + 1) * arc);
+        ctx.lineTo(160, 160);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(160, 160);
+        ctx.rotate(i * arc + arc / 2);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Outfit';
+        ctx.textAlign = 'right';
+        ctx.fillText(seg.nama.substring(0, 12), 140, 5);
+        ctx.restore();
+    });
+}
+
+function startWheelAnimation() {
+    isSpinning = true;
+    wheelSpeed = 0.2;
+    function animate() {
+        if (!isSpinning) return;
+        wheelAngle += wheelSpeed;
+        const canvas = document.getElementById('displayWheelCanvas');
+        if (canvas) {
+            canvas.style.transform = `rotate(${wheelAngle}rad)`;
+        }
+        requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+function stopWheelAnimation(winnerIndex) {
+    isSpinning = false;
+    const canvas = document.getElementById('displayWheelCanvas');
+    if (!canvas || wheelSegments.length === 0) return;
+    
+    const arc = (2 * Math.PI) / wheelSegments.length;
+    const targetAngle = -(winnerIndex * arc + arc / 2) + (Math.PI / 2);
+    wheelAngle = targetAngle % (2 * Math.PI);
+    canvas.style.transition = 'transform 2s ease-out';
+    canvas.style.transform = `rotate(${wheelAngle}rad)`;
 }
 
 // ============================================================
@@ -728,6 +869,11 @@ function resetDisplay() {
         currentVolume = s.settings?.volume  ?? 0.7;
         soundEnabled  = s.settings?.soundEnabled ?? true;
         animEnabled   = s.settings?.animEnabled  ?? true;
+        
+        // Load initial draw mode
+        if (s.settings?.drawMode) {
+            toggleDrawMode(s.settings.drawMode);
+        }
     } catch(e) { console.error('display loadOnOpen:', e); }
 })();
 

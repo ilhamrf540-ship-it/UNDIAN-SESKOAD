@@ -139,11 +139,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function broadcastToDisplay(type, payload = {}) {
         try { displayChannel.postMessage({ type, payload }); } catch(e) {}
+        
+        // Sinkronisasi Multi-Perangkat Online menggunakan ntfy.sh
+        if (state.settings.syncRoomCode) {
+            const topic = `undian_sync_${state.settings.syncRoomCode.trim().toLowerCase()}`;
+            fetch(`https://ntfy.sh/${topic}`, {
+                method: 'POST',
+                body: JSON.stringify({ type, payload })
+            }).catch(err => console.error("Gagal broadcast online:", err));
+        }
     }
 
     function openDisplayWindow() {
+        let url = 'display.html';
+        if (state.settings.syncRoomCode) {
+            url += `?room=${state.settings.syncRoomCode.trim().toLowerCase()}`;
+        }
         if (!displayWindow || displayWindow.closed) {
-            displayWindow = window.open('display.html', 'UndianDisplay',
+            displayWindow = window.open(url, 'UndianDisplay',
                 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes');
         } else {
             displayWindow.focus();
@@ -378,8 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === INITIALIZATION & VIEW UPDATES ===
     function initApp() {
-        loadState();
         updateDashboardStats();
+        calculateReadyParticipants();
         renderPesertaTable();
         renderHadiahTable();
         populatePrizeDropdowns();
@@ -392,6 +405,37 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load initial draw speed
         const speedEl = document.getElementById('drawSpeedInput');
         if (speedEl) speedEl.value = state.settings.drawSpeed || 'normal';
+
+        // Load checkbox states from settings
+        const chkUnique = document.getElementById('chkUniqueWinner');
+        if (chkUnique) chkUnique.checked = state.settings.uniqueWinner ?? true;
+        
+        const chkReduce = document.getElementById('chkAutoReducePrize');
+        if (chkReduce) chkReduce.checked = state.settings.autoReducePrize ?? true;
+        
+        const chkNoDup = document.getElementById('chkNoDuplicates');
+        if (chkNoDup) chkNoDup.checked = state.settings.noDuplicates ?? true;
+
+        // Initialize Online Sync Room settings
+        const syncRoomInput = document.getElementById('syncRoomCode');
+        if (syncRoomInput) {
+            syncRoomInput.value = state.settings.syncRoomCode || '';
+            updateSyncLinkUI(state.settings.syncRoomCode || '');
+        }
+    }
+
+    function updateSyncLinkUI(roomCode) {
+        const linkEl = document.getElementById('syncDisplayLink');
+        if (linkEl) {
+            if (roomCode) {
+                const cleanCode = roomCode.trim().toLowerCase();
+                linkEl.href = `display.html?room=${cleanCode}`;
+                linkEl.innerText = `display.html?room=${cleanCode}`;
+            } else {
+                linkEl.removeAttribute('href');
+                linkEl.innerText = 'Belum ada kode';
+            }
+        }
     }
 
     function applyCustomStyling() {
@@ -848,19 +892,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDrawing = false;
     let rollTimer = null;
     let targetWinner = null;
+    let currentRollingItem = null;
     let readyParticipants = [];
 
     function populatePrizeDropdowns() {
         const select = document.getElementById('selectTargetHadiah');
+        if (!select) return;
+        const currentSelectedId = select.value || (selectedPrize ? selectedPrize.id : "");
+        
         select.innerHTML = '<option value="">-- Pilih Target Hadiah --</option>';
         state.hadiah.forEach(h => {
-            if (h.sisa > 0) {
+            if (h.sisa > 0 || h.id == currentSelectedId) {
                 const opt = document.createElement('option');
                 opt.value = h.id;
                 opt.innerText = `[${h.tingkat}] ${h.nama} (Sisa: ${h.sisa})`;
                 select.appendChild(opt);
             }
         });
+        
+        select.value = currentSelectedId;
     }
 
     document.getElementById('selectTargetHadiah').addEventListener('change', (e) => {
@@ -892,10 +942,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateReadyParticipants() {
         let pool = [...state.peserta];
         
-        // Filter unique winner
+        // Filter unique winner (pemenang tidak bisa menang lagi)
         if (state.settings.uniqueWinner) {
             const winnersList = state.pemenang.map(w => w.noPeserta);
             pool = pool.filter(p => !winnersList.includes(p.noPeserta));
+        }
+
+        // Kunci duplikasi peserta ganda (jika noPeserta sama, hanya ambil satu)
+        if (state.settings.noDuplicates) {
+            const seen = new Set();
+            pool = pool.filter(p => {
+                if (seen.has(p.noPeserta)) return false;
+                seen.add(p.noPeserta);
+                return true;
+            });
         }
 
         readyParticipants = pool;
@@ -906,12 +966,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start / Stop mechanics
     document.getElementById('btnStartDraw').addEventListener('click', startDrawSequence);
     document.getElementById('btnStopDraw').addEventListener('click', stopDrawSequence);
+    document.getElementById('btnForceStopDraw').addEventListener('click', forceStopDrawSequence);
+    const btnTvForce = document.getElementById('btnTvForceStop');
+    if (btnTvForce) {
+        btnTvForce.addEventListener('click', forceStopDrawSequence);
+    }
     document.getElementById('btnRedraw').addEventListener('click', startDrawSequence);
     document.getElementById('btnResetDraw').addEventListener('click', () => {
         calculateReadyParticipants();
         document.getElementById('rollingList').innerHTML = '<div class="rolling-item">Mulai Pengundian</div>';
         document.getElementById('btnStartDraw').disabled = false;
         document.getElementById('btnStopDraw').disabled = true;
+        document.getElementById('btnForceStopDraw').disabled = true;
         document.getElementById('btnRedraw').disabled = true;
     });
 
@@ -988,6 +1054,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnStartDraw').disabled = true;
         document.getElementById('btnStopDraw').disabled = true;
         document.getElementById('btnRedraw').disabled = true;
+        
+        const btnForceStop = document.getElementById('btnForceStopDraw');
+        if (btnForceStop) btnForceStop.disabled = true;
+        const btnTvForce = document.getElementById('btnTvForceStop');
+        if (btnTvForce) btnTvForce.disabled = true;
 
         let countdownVal = 3;
 
@@ -1015,6 +1086,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 isDrawing = true;
                 document.getElementById('btnStopDraw').disabled = false;
+                if (btnForceStop) btnForceStop.disabled = false;
+                if (btnTvForce) btnTvForce.disabled = false;
 
                 // Cek apakah ada pemenang khusus yang disetting untuk hadiah ini
                 const specialWinnerSetting = state.specialWinners ? state.specialWinners.find(sw => sw.prizeId == selectedPrize.id) : null;
@@ -1060,6 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rollTimer = setInterval(() => {
             const item = readyParticipants[idx % readyParticipants.length];
+            currentRollingItem = item;
             const html = `
                 <div class="rolling-item">
                     <div>${item.nama}</div>
@@ -1094,11 +1168,77 @@ document.addEventListener('DOMContentLoaded', () => {
         animate();
     }
 
+    function forceStopDrawSequence() {
+        if (!isDrawing) return;
+        isDrawing = false;
+        clearInterval(rollTimer);
+        document.getElementById('btnStopDraw').disabled = true;
+        
+        const btnForceStop = document.getElementById('btnForceStopDraw');
+        if (btnForceStop) btnForceStop.disabled = true;
+        const btnTvForce = document.getElementById('btnTvForceStop');
+        if (btnTvForce) btnTvForce.disabled = true;
+
+        if (currentRollingItem) {
+            targetWinner = currentRollingItem;
+        }
+        revealWinner();
+    }
+
     function stopDrawSequence() {
         if (!isDrawing) return;
         isDrawing = false;
         clearInterval(rollTimer);
         document.getElementById('btnStopDraw').disabled = true;
+        
+        const btnForceStop = document.getElementById('btnForceStopDraw');
+        if (btnForceStop) btnForceStop.disabled = true;
+        const btnTvForce = document.getElementById('btnTvForceStop');
+        if (btnTvForce) btnTvForce.disabled = true;
+
+        if (state.settings.drawMode === 'rolling') {
+            // Deselerasi (perlambatan) visual agar nama berhenti tepat pada targetWinner secara alami
+            const list = document.getElementById('rollingList');
+            let steps = 0;
+            const totalSteps = 6;
+            let currentDelay = 80;
+
+            function decelerate() {
+                if (steps < totalSteps) {
+                    let tempItem;
+                    if (steps === totalSteps - 1) {
+                        tempItem = targetWinner;
+                    } else {
+                        // Ambil nama acak lain agar terlihat berputar melambat
+                        const pool = readyParticipants.filter(p => p.id !== targetWinner.id);
+                        tempItem = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : targetWinner;
+                    }
+
+                    const html = `
+                        <div class="rolling-item">
+                            <div>${tempItem.nama}</div>
+                            <div class="instansi">${tempItem.instansi}</div>
+                            <small style="font-size:1rem;">Nomor: ${tempItem.noPeserta}</small>
+                        </div>
+                    `;
+                    list.innerHTML = html;
+                    broadcastToDisplay('ROLLING_TICK', tempItem);
+                    playSound('tick');
+
+                    steps++;
+                    currentDelay += 70; // Menambah jeda waktu (melambat)
+                    setTimeout(decelerate, currentDelay);
+                } else {
+                    revealWinner();
+                }
+            }
+            decelerate();
+        } else {
+            revealWinner();
+        }
+    }
+
+    function revealWinner() {
         document.getElementById('btnRedraw').disabled = false;
 
         // Reveal selected winner card with full animation
@@ -1142,6 +1282,11 @@ document.addEventListener('DOMContentLoaded', () => {
             hadiah: selectedPrize.nama,
             waktu: dateStr
         });
+
+        // Hapus peserta ini dari pengaturan pemenang khusus di hadiah manapun agar tidak menang lagi
+        if (state.specialWinners) {
+            state.specialWinners = state.specialWinners.filter(sw => sw.participantId != winner.id);
+        }
 
         // Reduce prize qty
         if (state.settings.autoReducePrize && selectedPrize.sisa > 0) {
@@ -1316,6 +1461,42 @@ document.addEventListener('DOMContentLoaded', () => {
         broadcastToDisplay('UPDATE_SPEED', { drawSpeed: state.settings.drawSpeed });
     });
 
+    // Checkbox rules listeners
+    const elUnique = document.getElementById('chkUniqueWinner');
+    if (elUnique) {
+        elUnique.addEventListener('change', (e) => {
+            state.settings.uniqueWinner = e.target.checked;
+            saveState();
+            calculateReadyParticipants();
+        });
+    }
+
+    const elReduce = document.getElementById('chkAutoReducePrize');
+    if (elReduce) {
+        elReduce.addEventListener('change', (e) => {
+            state.settings.autoReducePrize = e.target.checked;
+            saveState();
+        });
+    }
+
+    const elNoDup = document.getElementById('chkNoDuplicates');
+    if (elNoDup) {
+        elNoDup.addEventListener('change', (e) => {
+            state.settings.noDuplicates = e.target.checked;
+            saveState();
+            calculateReadyParticipants();
+        });
+    }
+    // Online Sync Room Code listener
+    const syncRoomInput = document.getElementById('syncRoomCode');
+    if (syncRoomInput) {
+        syncRoomInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            state.settings.syncRoomCode = val;
+            saveState();
+            updateSyncLinkUI(val);
+        });
+    }
     // Logo Upload
     document.getElementById('logoUploadInput').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -1489,7 +1670,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         selectParticipant.innerHTML = '<option value="">-- Pilih Peserta --</option>';
         const sortedPeserta = [...state.peserta].sort((a, b) => a.nama.localeCompare(b.nama));
-        sortedPeserta.forEach(p => {
+        
+        // Saring peserta yang sudah pernah menang jika uniqueWinner aktif
+        let filteredPeserta = sortedPeserta;
+        if (state.settings.uniqueWinner) {
+            const winnersList = state.pemenang.map(w => w.noPeserta);
+            filteredPeserta = sortedPeserta.filter(p => !winnersList.includes(p.noPeserta));
+        }
+
+        filteredPeserta.forEach(p => {
             selectParticipant.innerHTML += `<option value="${p.id}">${p.nama} (${p.noPeserta}) - ${p.instansi}</option>`;
         });
 
@@ -1583,5 +1772,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === START POINT ===
+    loadState();
     checkLogin();
 });

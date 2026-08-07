@@ -112,6 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 4, tingkat: "Doorprize", nama: "Smart TV 55 Inch", gambar: "", jumlah: 2, sisa: 2, desc: "TV pintar layar bioskop" },
                 { id: 5, tingkat: "Hiburan", nama: "Voucher Belanja 500K", gambar: "", jumlah: 5, sisa: 5, desc: "Voucher belanja gratis" }
             ];
+            state.specialWinners = [
+                { prizeId: 1, participantId: 1 },
+                { prizeId: 2, participantId: 2 },
+                { prizeId: 3, participantId: 3 },
+                { prizeId: 4, participantId: 4 },
+                { prizeId: 5, participantId: 5 }
+            ];
             saveState();
         }
         state.specialWinners = state.specialWinners || [];
@@ -1090,10 +1097,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnTvForce) btnTvForce.disabled = false;
 
                 // Cek apakah ada pemenang khusus yang disetting untuk hadiah ini
-                const specialWinnerSetting = state.specialWinners ? state.specialWinners.find(sw => sw.prizeId == selectedPrize.id) : null;
+                const specialWinnerSettings = state.specialWinners ? state.specialWinners.filter(sw => sw.prizeId == selectedPrize.id) : [];
                 let foundSpecialWinner = null;
-                if (specialWinnerSetting) {
-                    foundSpecialWinner = readyParticipants.find(p => p.id == specialWinnerSetting.participantId);
+                for (const sw of specialWinnerSettings) {
+                    const match = readyParticipants.find(p => p.id == sw.participantId);
+                    if (match) {
+                        foundSpecialWinner = match;
+                        break;
+                    }
                 }
 
                 if (foundSpecialWinner) {
@@ -1364,6 +1375,28 @@ document.addEventListener('DOMContentLoaded', () => {
         XLSX.utils.book_append_sheet(wb, ws, "Pemenang");
         XLSX.writeFile(wb, "Daftar_Pemenang_Doorprize.xlsx");
     });
+
+    // Export Excel Peserta
+    const btnExportPesertaExcel = document.getElementById('btnExportPesertaExcel');
+    if (btnExportPesertaExcel) {
+        btnExportPesertaExcel.addEventListener('click', () => {
+            if (state.peserta.length === 0) {
+                Swal.fire('Info', 'Belum ada data peserta untuk diekspor.', 'info');
+                return;
+            }
+            const exportData = state.peserta.map((p, idx) => ({
+                "No": idx + 1,
+                "Nomor Peserta": p.noPeserta,
+                "Nama Lengkap": p.nama,
+                "Instansi": p.instansi,
+                "No. HP": p.hp || '-'
+            }));
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Peserta");
+            XLSX.writeFile(wb, `Daftar_Peserta_Undian_${Date.now()}.xlsx`);
+        });
+    }
 
     // Export PDF
     document.getElementById('btnExportWinnersPdf').addEventListener('click', () => {
@@ -1671,12 +1704,11 @@ document.addEventListener('DOMContentLoaded', () => {
         selectParticipant.innerHTML = '<option value="">-- Pilih Peserta --</option>';
         const sortedPeserta = [...state.peserta].sort((a, b) => a.nama.localeCompare(b.nama));
         
-        // Saring peserta yang sudah pernah menang jika uniqueWinner aktif
+        // Saring peserta yang sudah pernah menang ATAU sudah diset sebagai pemenang khusus
         let filteredPeserta = sortedPeserta;
-        if (state.settings.uniqueWinner) {
-            const winnersList = state.pemenang.map(w => w.noPeserta);
-            filteredPeserta = sortedPeserta.filter(p => !winnersList.includes(p.noPeserta));
-        }
+        const winnersList = state.pemenang.map(w => w.noPeserta);
+        const specialWinnersList = (state.specialWinners || []).map(sw => sw.participantId);
+        filteredPeserta = sortedPeserta.filter(p => !winnersList.includes(p.noPeserta) && !specialWinnersList.includes(p.id));
 
         filteredPeserta.forEach(p => {
             selectParticipant.innerHTML += `<option value="${p.id}">${p.nama} (${p.noPeserta}) - ${p.instansi}</option>`;
@@ -1743,31 +1775,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!prizeId || !participantId) return;
 
-            const existingIdx = state.specialWinners.findIndex(sw => sw.prizeId == prizeId);
-            if (existingIdx !== -1) {
-                Swal.fire({
-                    title: 'Pemenang Khusus Sudah Ada',
-                    text: 'Hadiah ini sudah memiliki setingan pemenang khusus. Apakah Anda ingin menimpanya?',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Ya, Timpa',
-                    cancelButtonText: 'Batal'
-                }).then(res => {
-                    if (res.isConfirmed) {
-                        state.specialWinners[existingIdx].participantId = participantId;
-                        saveState();
-                        initApp();
-                        formTambahPemenangKhusus.reset();
-                        Swal.fire('Berhasil', 'Pengaturan pemenang khusus berhasil diperbarui!', 'success');
-                    }
-                });
-            } else {
-                state.specialWinners.push({ prizeId, participantId });
-                saveState();
-                initApp();
-                formTambahPemenangKhusus.reset();
-                Swal.fire('Berhasil', 'Pengaturan pemenang khusus berhasil disimpan!', 'success');
+            // Cek duplikasi: Peserta ini tidak boleh didaftarkan sebagai pemenang khusus lebih dari sekali
+            const isParticipantDuplicated = state.specialWinners.some(sw => sw.participantId == participantId);
+            if (isParticipantDuplicated) {
+                Swal.fire('Error', 'Peserta ini sudah terdaftar sebagai pemenang khusus!', 'error');
+                return;
             }
+
+            // Cek apakah peserta sudah pernah menang
+            const participant = state.peserta.find(p => p.id == participantId);
+            const hasAlreadyWon = state.pemenang.some(w => w.noPeserta === participant?.noPeserta);
+            if (hasAlreadyWon) {
+                Swal.fire('Error', 'Peserta ini sudah memenangkan hadiah!', 'error');
+                return;
+            }
+
+            // Cek batas jumlah pemenang khusus untuk hadiah ini (tidak boleh melebihi sisa hadiah)
+            const prize = state.hadiah.find(h => h.id == prizeId);
+            const prizeSpecialWinnersCount = state.specialWinners.filter(sw => sw.prizeId == prizeId).length;
+            if (prize && prizeSpecialWinnersCount >= prize.sisa) {
+                Swal.fire('Error', `Jumlah pemenang khusus untuk hadiah ini tidak boleh melebihi sisa hadiah (${prize.sisa})!`, 'error');
+                return;
+            }
+
+            state.specialWinners.push({ prizeId, participantId });
+            saveState();
+            initApp();
+            formTambahPemenangKhusus.reset();
+            Swal.fire('Berhasil', 'Pengaturan pemenang khusus berhasil disimpan!', 'success');
         });
     }
 
